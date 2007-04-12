@@ -1,0 +1,18 @@
+-----------------------------------------------------------------------
+USAGE:
+       ymdecode username logfile
+-----------------------------------------------------------------------
+A simple script that parses Yahoo! Messenger's binary chat archives and
+dumps it to STDOUT. 
+-----------------------------------------------------------------------
+Yahoo archive format, as reverse-engineered by the author:
+
+DATE-eightmysterybytes-SIZE-MESSAGE-ZERO
+ V            V2        V   a{size}  x2
+
++ The date is a standard UNIX timestamp.
++ The first of the mystery bytes seems to be 06 for a valid message.
+  I ignore it at the moment. The rest are zero, afaics.
++ The message has a length of SIZE bytes. It is encoded by XORing it
+  with the username of the user who was logged in when the client did
+  the logging. This username is usually a part of the log filename.

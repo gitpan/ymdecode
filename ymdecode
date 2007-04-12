@@ -1,0 +1,80 @@
+#!/usr/bin/perl
+#
+# Copyright (C) 2007  Rodin Lyasoff
+#
+# This program is free software; you can redistribute it and/or
+# modify it under the terms of the GNU General Public License
+# as published by the Free Software Foundation; either version 2
+# of the License, or (at your option) any later version.
+#
+# This program is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+# GNU General Public License for more details.
+#
+# You should have received a copy of the GNU General Public License
+# along with this program; if not, write to
+# The Free Software Foundation, Inc.
+# 51 Franklin Street, Fifth Floor
+# Boston, MA, 02110-1301, USA
+#
+###########################################################################
+# Yahoo archive format, as reverse-engineered by the author:
+#
+# DATE-eightmysterybytes-SIZE-MESSAGE-ZERO
+#  V            V2        V   a{size}  x2
+#
+# + The date is a standard UNIX timestamp.
+# + The first of the mystery bytes seems to be 06 for a valid message.
+#   I ignore it at the moment. The rest are zero, afaics.
+# + The message has a length of SIZE bytes. It is encoded by XORing it
+#   with the username of the user who was logged in when the client did
+#   the logging. This username is usually a part of the log filename.
+###########################################################################
+
+
+my $username = "";
+my $file = "";
+$username = shift and $file = shift or die<<EOF;
+USAGE: ymdecode [username] [logfile]
+EOF
+
+my $buffer = "";
+
+# deXOR the message. 
+# Obviously, that's the same as XORing it.
+# deXOR just sounds more aweXome.
+sub dexor{
+  my $strin = shift;
+  my $key = shift;
+  # given the message and a key, we need to make a key string 
+  # whose length matches the length of the message
+  my $len = length($strin);
+  my $keylen = length($key);
+  my $snum = int($len/$keylen+1);
+  # we copy the key string $snum times
+  my $over = $key x $snum;
+  # and trim the extra stuff at the end
+  my $xor = substr($over,0,$len);
+  # XOR them together
+  return $strin ^ $xor;
+}
+
+open FILE, "<$file" or die "Couldn't open $file.\n";
+# while we can get a date, keep cycling through the file.
+while (read(FILE,$buffer,4,0)){
+  my $datebytes = unpack('V',$buffer);
+  #skip the mystery crap (8 bytes)
+  seek(FILE,8,1);
+  #get the message length
+  read(FILE,$buffer,4,0);
+  my $msglen = unpack('V',$buffer);
+  #read the message ($msglen bytes)
+  read(FILE,$buffer,$msglen,0);
+  my $msgxor = unpack('a'.$msglen,$buffer);
+  #skip the null separator (2 bytes)
+  seek(FILE,4,1);  
+  my $message = "";
+  $msglen and $message = dexor($msgxor,$username) and $datestr = gmtime($datebytes) and   print "$datestr(GMT): $message\n\n";
+}
+close FILE;
